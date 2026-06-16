@@ -92,26 +92,38 @@ def fetch_ad_accounts(access_token: str) -> list[dict]:
 
 def verify_token(access_token: str) -> dict:
     """Kiểm tra token còn hợp lệ không. Trả {name, expires_at} hoặc raise."""
-    with httpx.Client(timeout=10) as client:
+    with httpx.Client(timeout=15) as client:
         resp = client.get(f"{GRAPH_BASE}/me", params={
             "access_token": access_token,
             "fields": "id,name",
         })
-        resp.raise_for_status()
         data = resp.json()
+        # Graph API trả lỗi trong body (HTTP 200 hoặc 4xx)
         if "error" in data:
-            raise ValueError(data["error"].get("message", "Token không hợp lệ"))
-        # Lấy thêm thông tin hết hạn từ debug_token
-        debug = client.get(f"{GRAPH_BASE}/debug_token", params={
-            "input_token": access_token,
-            "access_token": access_token,
-        })
+            msg = data["error"].get("message", "Token không hợp lệ")
+            code = data["error"].get("code", 0)
+            raise ValueError(f"{msg} (code {code})")
+        if not resp.is_success:
+            resp.raise_for_status()
+
+        # Thử lấy expires_at qua debug_token — dùng App Token nếu có, không thì bỏ qua
         exp = None
-        if debug.status_code == 200:
-            exp_ts = debug.json().get("data", {}).get("expires_at")
-            if exp_ts:
-                from datetime import datetime, timezone
-                exp = datetime.fromtimestamp(exp_ts, tz=timezone.utc).isoformat()
+        app_id, app_secret, _ = _cfg()
+        if app_id and app_secret:
+            try:
+                app_token = f"{app_id}|{app_secret}"
+                dbg = client.get(f"{GRAPH_BASE}/debug_token", params={
+                    "input_token": access_token,
+                    "access_token": app_token,
+                })
+                dbg_data = dbg.json().get("data", {})
+                exp_ts = dbg_data.get("expires_at") or dbg_data.get("data_access_expires_at")
+                if exp_ts and int(exp_ts) > 0:
+                    from datetime import datetime, timezone
+                    exp = datetime.fromtimestamp(int(exp_ts), tz=timezone.utc).isoformat()
+            except Exception:
+                pass
+
         return {"name": data.get("name", ""), "expires_at": exp}
 
 

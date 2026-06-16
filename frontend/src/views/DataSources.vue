@@ -46,7 +46,7 @@ async function fbSaveAccount() {
   if (!fb.value.selectedAccount) return showMsg('Vui lòng chọn Ad Account', 'err')
   fb.value.savingAccount = true
   try {
-    await api.put('/api/oauth/facebook/adaccount', { ad_account_id: fb.value.selectedAccount })
+    await api.put('/api/oauth/facebook/adaccount', { ad_account_id: fb.value.selectedAccount }  )
     const chosen = fb.value.info.ad_accounts.find(a => a.id === fb.value.selectedAccount)
     showMsg(`✓ Đã chọn Ad Account: ${chosen?.name || fb.value.selectedAccount}`)
   } catch (e) {

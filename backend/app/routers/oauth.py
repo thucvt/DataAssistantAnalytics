@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from app.core.auth import create_access_token, decode_token, get_current_user
 from app.core.database import get_db
 from app.models import User
-from app.schemas.oauth import AuthUrlOut, ConnectionOut, PasteTokenIn, TokenVerifyOut
+from app.schemas.oauth import AuthUrlOut, ConnectionOut, PasteTokenIn, SelectAdAccountIn, TokenVerifyOut
 from app.services import oauth_service
 from app.services.integrations import facebook
 from app.services.integrations import tiktok as tiktok_int
@@ -73,7 +73,7 @@ def fb_paste_token(
     try:
         info = facebook.verify_token(body.access_token)
     except Exception as exc:
-        raise HTTPException(status_code=400, detail=f"Token không hợp lệ: {exc}")
+        raise HTTPException(status_code=400, detail=str(exc))
 
     token, extended = facebook.try_extend_token(body.access_token)
 
@@ -117,12 +117,12 @@ def fb_paste_token(
 
 @router.put("/facebook/adaccount")
 def fb_set_adaccount(
-    body: dict,
+    body: SelectAdAccountIn,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
     """Lưu Ad Account ID đã chọn từ dropdown."""
-    ad_account_id = body.get("ad_account_id", "").strip()
+    ad_account_id = body.ad_account_id.strip()
     if not ad_account_id:
         raise HTTPException(status_code=400, detail="Cần chọn Ad Account")
     conn = oauth_service.get_connection(db, user.id, "facebook")

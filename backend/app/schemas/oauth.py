@@ -30,3 +30,7 @@ class TokenVerifyOut(BaseModel):
     expires_at: str | None = None
     long_lived: bool = False
     ad_accounts: list[dict] = []   # Facebook: danh sách ad accounts để chọn
+
+
+class SelectAdAccountIn(BaseModel):
+    ad_account_id: str
