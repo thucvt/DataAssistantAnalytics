@@ -94,7 +94,13 @@ def fb_paste_token(
         except Exception:
             pass
 
-    # Lưu vào DB — extra chứa ad_account_id nếu user nhập
+    # Lấy danh sách ad accounts để frontend hiện dropdown
+    try:
+        ad_accounts = facebook.fetch_ad_accounts(token)
+    except Exception:
+        ad_accounts = []
+
+    # Lưu token vào DB (ad_account_id chọn sau)
     oauth_service.save_connection(
         db, user_id=user.id, provider="facebook",
         access_token=token, expires_at=expires_at_dt,
@@ -105,7 +111,31 @@ def fb_paste_token(
         name=info.get("name", ""),
         expires_at=expires_at_str,
         long_lived=extended,
+        ad_accounts=ad_accounts,
     )
+
+
+@router.put("/facebook/adaccount")
+def fb_set_adaccount(
+    body: dict,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Lưu Ad Account ID đã chọn từ dropdown."""
+    ad_account_id = body.get("ad_account_id", "").strip()
+    if not ad_account_id:
+        raise HTTPException(status_code=400, detail="Cần chọn Ad Account")
+    conn = oauth_service.get_connection(db, user.id, "facebook")
+    if not conn:
+        raise HTTPException(status_code=400, detail="Chưa kết nối Facebook")
+    extra = oauth_service.get_extra(conn)
+    extra["ad_account_id"] = ad_account_id
+    oauth_service.save_connection(
+        db, user_id=user.id, provider="facebook",
+        access_token=oauth_service.get_access_token(db, user.id, "facebook"),
+        extra=extra,
+    )
+    return {"ok": True}
 
 
 # ── Facebook / Meta Ads OAuth (tuỳ chọn, cần App Review) ────────────────────

@@ -69,6 +69,27 @@ def exchange_code_for_token(code: str) -> dict:
     return data  # {access_token, token_type, expires_in}
 
 
+def fetch_ad_accounts(access_token: str) -> list[dict]:
+    """Lấy danh sách Ad Accounts thuộc token. Trả [{id, name, currency}]."""
+    with httpx.Client(timeout=15) as client:
+        resp = client.get(f"{GRAPH_BASE}/me/adaccounts", params={
+            "access_token": access_token,
+            "fields": "account_id,name,currency,account_status",
+            "limit": 100,
+        })
+        resp.raise_for_status()
+        data = resp.json()
+        return [
+            {
+                "id": f"act_{row['account_id']}",
+                "name": row.get("name", ""),
+                "currency": row.get("currency", ""),
+                "status": row.get("account_status", 1),
+            }
+            for row in data.get("data", [])
+        ]
+
+
 def verify_token(access_token: str) -> dict:
     """Kiểm tra token còn hợp lệ không. Trả {name, expires_at} hoặc raise."""
     with httpx.Client(timeout=10) as client:

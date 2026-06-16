@@ -26,6 +26,7 @@ class PasteTokenIn(BaseModel):
 
 class TokenVerifyOut(BaseModel):
     ok: bool
-    name: str = ""             # tên user/account từ API
+    name: str = ""
     expires_at: str | None = None
-    long_lived: bool = False   # đã gia hạn lên long-lived chưa
+    long_lived: bool = False
+    ad_accounts: list[dict] = []   # Facebook: danh sách ad accounts để chọn
