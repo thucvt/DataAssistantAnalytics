@@ -1,0 +1,37 @@
+# --- Web framework ---
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+python-multipart==0.0.20
+
+# --- Config / settings ---
+pydantic==2.10.4
+pydantic-settings==2.7.1
+python-dotenv==1.0.1
+email-validator==2.2.0
+
+# --- Database / ORM ---
+sqlalchemy==2.0.36
+# Postgres driver (đồng bộ, dùng với DATABASE_URL postgresql+psycopg://)
+psycopg[binary]==3.2.3
+# MySQL driver (mysql+pymysql://)
+pymysql==1.1.1
+
+# --- Security: mã hóa secret + hash password ---
+cryptography==44.0.0
+bcrypt==4.2.1
+
+# --- JWT (Phase 2) ---
+pyjwt==2.10.1
+
+# --- LLM Router + Agent (Phase 2 & 4) ---
+litellm==1.55.10
+langchain==0.3.14
+langchain-core==0.3.29
+langchain-community==0.3.14
+
+# --- HTTP client cho OAuth / API ngoài (Phase 3) ---
+httpx==0.28.1
+
+# --- Data processing + Excel export (Phase 4) ---
+pandas==2.2.3
+openpyxl==3.1.5

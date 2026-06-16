@@ -1,0 +1,17 @@
+:root {
+  --bg: #0a0a0b;
+  --bg-card: #17171b;
+  --border: #2a2a30;
+  --gold: #d4af37;
+  --gold-soft: #e8c766;
+  --text: #ECECEC;
+  --text-dim: #9a9aa2;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+a { color: var(--gold); }

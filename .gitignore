@@ -1,0 +1,18 @@
+# IDE / Claude local settings
+.claude/
+
+# Python
+__pycache__/
+*.pyc
+backend/.venv/
+backend/data/
+backend/.env
+*.db
+
+# Node / Vite
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Runtime exports (Phase 4)
+/tmp/exports/

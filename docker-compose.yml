@@ -1,0 +1,60 @@
+services:
+  backend:
+    build:
+      context: ./backend
+    container_name: daa_backend
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      # File .env runtime do Installer ghi ra, nằm trong volume để tồn tại qua restart
+      ENV_FILE: /app/data/.env
+      APP_PORT: "8080"
+    volumes:
+      - backend_data:/app/data
+      # Lưu file export Excel tạm thời (Phase 4)
+      - export_tmp:/tmp/exports
+    networks:
+      - daa_net
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: daa_frontend
+    restart: unless-stopped
+    ports:
+      - "5173:5173"
+    environment:
+      # Trỏ frontend tới backend API
+      VITE_API_BASE: http://localhost:8080
+    depends_on:
+      - backend
+    networks:
+      - daa_net
+
+  # PostgreSQL đóng gói sẵn — chỉ chạy khi bật profile `with-postgres`.
+  # Khách không có DB riêng có thể dùng cái này thay cho SQLite fallback.
+  postgres:
+    image: postgres:16-alpine
+    container_name: daa_postgres
+    restart: unless-stopped
+    profiles: ["with-postgres"]
+    environment:
+      POSTGRES_USER: daa
+      POSTGRES_PASSWORD: daa_change_me
+      POSTGRES_DB: daa
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - daa_net
+
+volumes:
+  backend_data:
+  export_tmp:
+  postgres_data:
+
+networks:
+  daa_net:
+    driver: bridge

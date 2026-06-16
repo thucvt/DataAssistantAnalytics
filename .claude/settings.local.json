@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pip --version)",
+      "Bash(python -m venv .venv)",
+      "Bash(.venv/Scripts/python.exe -m pip install --quiet --upgrade pip)",
+      "Bash(.venv/Scripts/python.exe -m pip install --quiet fastapi \"uvicorn[standard]\" pydantic pydantic-settings python-dotenv email-validator sqlalchemy cryptography \"passlib[bcrypt]\" bcrypt)",
+      "Bash(.venv/Scripts/python.exe -c \"import fastapi, sqlalchemy, cryptography, passlib, bcrypt, pydantic_settings, email_validator; print\\('imports OK'\\)\")",
+      "Bash(.venv/Scripts/python.exe -m pip install --quiet httpx)",
+      "Bash(.venv/Scripts/python.exe verify_installer.py)",
+      "Bash(PYTHONIOENCODING=utf-8 PYTHONUTF8=1 .venv/Scripts/python.exe verify_installer.py)",
+      "Bash(cd /f/DataAssistantAnalytics && find . -type f -not -path './backend/.venv/*' -not -path '*/__pycache__/*' | sort)",
+      "Bash(PYTHONIOENCODING=utf-8 PYTHONUTF8=1 .venv/Scripts/python.exe -m pip install --quiet pandas openpyxl pyjwt)",
+      "Bash(PYTHONIOENCODING=utf-8 PYTHONUTF8=1 .venv/Scripts/python.exe verify_all.py)",
+      "Bash(git --version)",
+      "Bash(gh --version)",
+      "Bash(gh auth *)",
+      "Bash(vercel --version)",
+      "PowerShell(node --version)",
+      "PowerShell(npm --version)",
+      "PowerShell(& \"$env:APPDATA\\\\npm\\\\vercel.cmd\" --version 2>&1)",
+      "PowerShell(npm config get prefix; ls \"$\\(npm config get prefix\\)\" 2>&1 | head -20)",
+      "Bash(git init *)",
+      "Bash(git add *)",
+      "Bash(git rm *)",
+      "Bash(git -c user.email=deploy@daa.local -c user.name=DAA commit -m ' *)"
+    ]
+  }
+}
