@@ -84,16 +84,16 @@ const chartOpts = {
 
 const PROMPTS = [
   'Tổng chi phí Ads và doanh thu tháng này là bao nhiêu?',
+  'So sánh chi phí Meta Ads vs TikTok Ads vs Google Ads',
   'ROAS của tôi đang ở mức nào? Có tốt không?',
-  'Ngày nào có doanh thu cao nhất? Tại sao?',
-  'Phân tích hiệu quả quảng cáo 30 ngày qua',
+  'Phân tích hiệu quả quảng cáo 30 ngày qua trên tất cả kênh',
 ]
 </script>
 
 <template>
   <div>
     <h2>Analytics</h2>
-    <p class="sub">Phân tích tổng hợp dữ liệu Meta Ads + Shopee. Hỏi AI bằng ngôn ngữ tự nhiên.</p>
+    <p class="sub">Phân tích tổng hợp: Meta Ads · Shopee · TikTok Ads · Google Ads Manager. Hỏi AI bằng ngôn ngữ tự nhiên.</p>
 
     <!-- Bộ lọc thời gian -->
     <div class="card" style="margin-bottom:16px">
@@ -148,7 +148,7 @@ const PROMPTS = [
     <!-- AI Agent chat -->
     <div class="card">
       <h3 style="margin-bottom:6px">Hỏi AI Agent</h3>
-      <p style="color:var(--text-dim);font-size:13px;margin-bottom:14px">Agent tự động lấy dữ liệu từ Meta Ads và Shopee rồi phân tích cho bạn.</p>
+      <p style="color:var(--text-dim);font-size:13px;margin-bottom:14px">Agent tự động lấy dữ liệu từ Meta Ads, Shopee, TikTok Ads và Google Ads Manager rồi phân tích cho bạn.</p>
 
       <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px">
         <button v-for="p in PROMPTS" :key="p" class="btn btn-ghost" style="font-size:12.5px;padding:6px 13px" @click="question = p">{{ p }}</button>

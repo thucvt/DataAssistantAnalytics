@@ -1,11 +1,4 @@
-"""Router OAuth 2.0 cho các nguồn dữ liệu (Facebook Graph, Shopee Open Platform).
-
-Luồng: client gọi `/authorize` (đã đăng nhập) -> nhận URL -> user đồng ý ->
-provider redirect về `/callback?code=...&state=...` -> đổi token -> lưu DB.
-
-`state` là một JWT ngắn hạn chứa user_id để callback (không có Authorization
-header) vẫn biết token thuộc về ai.
-"""
+"""Router OAuth 2.0 — Facebook, Shopee, TikTok, Google Ads."""
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
@@ -20,16 +13,30 @@ from app.models import User
 from app.schemas.oauth import AuthUrlOut, ConnectionOut, OAuthConfigItem
 from app.services import config_service, oauth_service
 from app.services.integrations import facebook
+from app.services.integrations import tiktok as tiktok_int
+from app.services.integrations import google_ads as google_int
 from app.services.integrations.shopee import ShopeeClient
 
 router = APIRouter(prefix="/api/oauth", tags=["oauth"])
 
-# Các config key được phép set qua endpoint config (tránh ghi đè key tùy ý)
 ALLOWED_CONFIG_KEYS = {
-    "FACEBOOK_APP_ID", "FACEBOOK_APP_SECRET", "FACEBOOK_REDIRECT_URI",
+    # Facebook / Meta
+    "FACEBOOK_APP_ID", "FACEBOOK_APP_SECRET", "FACEBOOK_REDIRECT_URI", "FACEBOOK_AD_ACCOUNT_ID",
+    # Shopee
     "SHOPEE_PARTNER_ID", "SHOPEE_PARTNER_KEY", "SHOPEE_REDIRECT_URI",
+    # TikTok
+    "TIKTOK_APP_ID", "TIKTOK_APP_SECRET", "TIKTOK_REDIRECT_URI", "TIKTOK_ADVERTISER_ID",
+    # Google Ads
+    "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "GOOGLE_REDIRECT_URI",
+    "GOOGLE_ADS_CUSTOMER_ID", "GOOGLE_ADS_DEVELOPER_TOKEN", "GOOGLE_ADS_LOGIN_CUSTOMER_ID",
 }
-SECRET_CONFIG_KEYS = {"FACEBOOK_APP_SECRET", "SHOPEE_PARTNER_KEY"}
+
+SECRET_CONFIG_KEYS = {
+    "FACEBOOK_APP_SECRET", "SHOPEE_PARTNER_KEY",
+    "TIKTOK_APP_SECRET", "GOOGLE_CLIENT_SECRET", "GOOGLE_ADS_DEVELOPER_TOKEN",
+}
+
+ALL_PROVIDERS = ("facebook", "shopee", "tiktok", "google")
 
 
 def _make_state(user_id: int, provider: str) -> str:
@@ -54,92 +61,96 @@ def _ok_page(provider: str) -> HTMLResponse:
     )
 
 
-# ---------- Cấu hình credentials (Super Admin) ----------
+# ── Cấu hình credentials ────────────────────────────────────────────────────
 @router.put("/config")
-def set_config(
-    item: OAuthConfigItem,
-    db: Session = Depends(get_db),
-    _: User = Depends(require_superadmin),
-):
+def set_config(item: OAuthConfigItem, db: Session = Depends(get_db), _: User = Depends(require_superadmin)):
     if item.key not in ALLOWED_CONFIG_KEYS:
         raise HTTPException(status_code=400, detail="Config key không được phép.")
-    is_secret = item.key in SECRET_CONFIG_KEYS
-    config_service.set_config(db, item.key, item.value, is_secret=is_secret)
+    config_service.set_config(db, item.key, item.value, is_secret=item.key in SECRET_CONFIG_KEYS)
     return {"ok": True}
 
 
 @router.get("/connections", response_model=list[ConnectionOut])
 def list_connections(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    out = []
-    for provider in ("facebook", "shopee"):
-        conn = oauth_service.get_connection(db, user.id, provider)
-        out.append(ConnectionOut(
-            provider=provider,
-            connected=bool(conn and conn.access_token),
-            expires_at=conn.expires_at.isoformat() if conn and conn.expires_at else None,
-        ))
-    return out
+    return [
+        ConnectionOut(
+            provider=p,
+            connected=bool((c := oauth_service.get_connection(db, user.id, p)) and c.access_token),
+            expires_at=c.expires_at.isoformat() if (c := oauth_service.get_connection(db, user.id, p)) and c.expires_at else None,
+        )
+        for p in ALL_PROVIDERS
+    ]
 
 
-# ---------- Facebook ----------
+# ── Facebook ────────────────────────────────────────────────────────────────
 @router.get("/facebook/authorize", response_model=AuthUrlOut)
 def fb_authorize(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    url = facebook.build_authorization_url(db, state=_make_state(user.id, "facebook"))
-    return AuthUrlOut(authorization_url=url)
+    return AuthUrlOut(authorization_url=facebook.build_authorization_url(db, state=_make_state(user.id, "facebook")))
 
 
 @router.get("/facebook/callback")
-def fb_callback(
-    code: str = Query(...),
-    state: str = Query(...),
-    db: Session = Depends(get_db),
-):
+def fb_callback(code: str = Query(...), state: str = Query(...), db: Session = Depends(get_db)):
     user_id = _read_state(state, "facebook")
     try:
-        token_data = facebook.exchange_code_for_token(db, code)
-    except Exception as exc:  # noqa: BLE001
-        raise HTTPException(status_code=502, detail=f"Lỗi đổi token Facebook: {exc}")
-
-    expires_at = None
-    if token_data.get("expires_in"):
-        expires_at = datetime.now(timezone.utc) + timedelta(seconds=int(token_data["expires_in"]))
-    oauth_service.save_connection(
-        db, user_id=user_id, provider="facebook",
-        access_token=token_data.get("access_token", ""), expires_at=expires_at,
-    )
-    return _ok_page("Facebook")
+        data = facebook.exchange_code_for_token(db, code)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Lỗi Facebook: {exc}")
+    expires_at = datetime.now(timezone.utc) + timedelta(seconds=int(data["expires_in"])) if data.get("expires_in") else None
+    oauth_service.save_connection(db, user_id=user_id, provider="facebook", access_token=data.get("access_token", ""), expires_at=expires_at)
+    return _ok_page("Facebook / Meta Ads")
 
 
-# ---------- Shopee ----------
+# ── Shopee ──────────────────────────────────────────────────────────────────
 @router.get("/shopee/authorize", response_model=AuthUrlOut)
 def shopee_authorize(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    client = ShopeeClient.from_db(db)
-    # state (JWT chứa user_id) được nhúng vào redirect URI để callback xác định user
-    url = client.build_authorization_url(state=_make_state(user.id, "shopee"))
-    return AuthUrlOut(authorization_url=url)
+    return AuthUrlOut(authorization_url=ShopeeClient.from_db(db).build_authorization_url(state=_make_state(user.id, "shopee")))
 
 
 @router.get("/shopee/callback")
-def shopee_callback(
-    code: str = Query(...),
-    shop_id: int = Query(...),
-    state: str = Query(...),
-    db: Session = Depends(get_db),
-):
+def shopee_callback(code: str = Query(...), shop_id: int = Query(...), state: str = Query(...), db: Session = Depends(get_db)):
     user_id = _read_state(state, "shopee")
-    client = ShopeeClient.from_db(db)
     try:
-        token_data = client.get_access_token(code, shop_id)
-    except Exception as exc:  # noqa: BLE001
-        raise HTTPException(status_code=502, detail=f"Lỗi đổi token Shopee: {exc}")
-
-    expires_at = None
-    if token_data.get("expire_in"):
-        expires_at = datetime.now(timezone.utc) + timedelta(seconds=int(token_data["expire_in"]))
-    oauth_service.save_connection(
-        db, user_id=user_id, provider="shopee",
-        access_token=token_data.get("access_token", ""),
-        refresh_token=token_data.get("refresh_token", ""),
-        expires_at=expires_at, extra={"shop_id": shop_id},
-    )
+        data = ShopeeClient.from_db(db).get_access_token(code, shop_id)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Lỗi Shopee: {exc}")
+    expires_at = datetime.now(timezone.utc) + timedelta(seconds=int(data["expire_in"])) if data.get("expire_in") else None
+    oauth_service.save_connection(db, user_id=user_id, provider="shopee", access_token=data.get("access_token", ""), refresh_token=data.get("refresh_token", ""), expires_at=expires_at, extra={"shop_id": shop_id})
     return _ok_page("Shopee")
+
+
+# ── TikTok ──────────────────────────────────────────────────────────────────
+@router.get("/tiktok/authorize", response_model=AuthUrlOut)
+def tiktok_authorize(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    return AuthUrlOut(authorization_url=tiktok_int.build_authorization_url(db, state=_make_state(user.id, "tiktok")))
+
+
+@router.get("/tiktok/callback")
+def tiktok_callback(auth_code: str = Query(...), state: str = Query(...), db: Session = Depends(get_db)):
+    user_id = _read_state(state, "tiktok")
+    try:
+        data = tiktok_int.exchange_code_for_token(db, auth_code)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Lỗi TikTok: {exc}")
+    # Lấy advertiser_id đầu tiên (nếu nhiều, user chọn sau trong settings)
+    advertiser_ids = data.get("advertiser_ids", [])
+    extra = {"advertiser_id": advertiser_ids[0] if advertiser_ids else ""}
+    oauth_service.save_connection(db, user_id=user_id, provider="tiktok", access_token=data.get("access_token", ""), extra=extra)
+    return _ok_page("TikTok Ads")
+
+
+# ── Google Ads ───────────────────────────────────────────────────────────────
+@router.get("/google/authorize", response_model=AuthUrlOut)
+def google_authorize(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    return AuthUrlOut(authorization_url=google_int.build_authorization_url(db, state=_make_state(user.id, "google")))
+
+
+@router.get("/google/callback")
+def google_callback(code: str = Query(...), state: str = Query(...), db: Session = Depends(get_db)):
+    user_id = _read_state(state, "google")
+    try:
+        data = google_int.exchange_code_for_token(db, code)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Lỗi Google: {exc}")
+    expires_at = datetime.now(timezone.utc) + timedelta(seconds=int(data["expires_in"])) if data.get("expires_in") else None
+    oauth_service.save_connection(db, user_id=user_id, provider="google", access_token=data.get("access_token", ""), refresh_token=data.get("refresh_token", ""), expires_at=expires_at)
+    return _ok_page("Google Ads Manager")
