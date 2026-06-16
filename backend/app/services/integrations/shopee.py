@@ -87,6 +87,13 @@ class ShopeeClient:
             resp.raise_for_status()
             return resp.json()  # {access_token, refresh_token, expire_in, ...}
 
+    def verify_token(self, access_token: str, shop_id: int) -> dict:
+        """Kiểm tra token hợp lệ bằng get_shop_info. Trả {shop_name}."""
+        data = self.signed_get("/api/v2/shop/get_shop_info", access_token, shop_id)
+        if data.get("error"):
+            raise ValueError(data.get("message", "Token không hợp lệ"))
+        return {"name": data.get("response", {}).get("shop_name", f"Shop {shop_id}")}
+
     # ----- Shop API (cần token) -----
     def _sign_shop(self, path: str, timestamp: int, access_token: str, shop_id: int) -> str:
         base = f"{self.partner_id}{path}{timestamp}{access_token}{shop_id}"

@@ -50,6 +50,21 @@ def exchange_code_for_token(auth_code: str) -> dict:
         return data.get("data", {})
 
 
+def verify_token(access_token: str, advertiser_id: str) -> dict:
+    """Xác minh token bằng cách lấy thông tin advertiser. Trả {name}."""
+    url = f"{API_BASE}/advertiser/info/"
+    with httpx.Client(timeout=10) as client:
+        resp = client.get(url, params={"advertiser_ids": f'["{advertiser_id}"]'},
+                          headers={"Access-Token": access_token})
+        resp.raise_for_status()
+        data = resp.json()
+        if data.get("code") != 0:
+            raise ValueError(data.get("message", "Token không hợp lệ"))
+        lst = data.get("data", {}).get("list", [])
+        name = lst[0].get("advertiser_name", f"Advertiser {advertiser_id}") if lst else advertiser_id
+        return {"name": name}
+
+
 def fetch_ad_spend(
     access_token: str, advertiser_id: str, start_date: str, end_date: str
 ) -> list[dict]:

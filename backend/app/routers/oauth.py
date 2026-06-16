@@ -135,7 +135,32 @@ def fb_callback(code: str = Query(...), state: str = Query(...), db: Session = D
     return _ok_page("Facebook / Meta Ads")
 
 
-# ── Shopee ────────────────────────────────────────────────────────────────────
+# ── Shopee paste token ────────────────────────────────────────────────────────
+@router.post("/shopee/token", response_model=TokenVerifyOut)
+def shopee_paste_token(
+    body: PasteTokenIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Dán Access Token + Shop ID lấy từ Shopee Partner Portal / test shop."""
+    shop_id = body.extra.get("shop_id")
+    if not shop_id:
+        raise HTTPException(status_code=400, detail="Cần nhập Shop ID")
+    try:
+        client = ShopeeClient.from_settings()
+        info = client.verify_token(body.access_token, int(shop_id))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Token không hợp lệ: {exc}")
+    oauth_service.save_connection(
+        db, user_id=user.id, provider="shopee",
+        access_token=body.access_token, extra={"shop_id": int(shop_id)},
+    )
+    return TokenVerifyOut(ok=True, name=info["name"])
+
+
+# ── Shopee OAuth (tuỳ chọn) ────────────────────────────────────────────────
 @router.get("/shopee/authorize", response_model=AuthUrlOut)
 def shopee_authorize(user: User = Depends(get_current_user)):
     try:
@@ -168,7 +193,32 @@ def shopee_callback(
     return _ok_page("Shopee")
 
 
-# ── TikTok Ads ────────────────────────────────────────────────────────────────
+# ── TikTok paste token ────────────────────────────────────────────────────────
+@router.post("/tiktok/token", response_model=TokenVerifyOut)
+def tiktok_paste_token(
+    body: PasteTokenIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Dán Access Token + Advertiser ID từ TikTok Business Center / API Explorer."""
+    advertiser_id = body.extra.get("advertiser_id")
+    if not advertiser_id:
+        raise HTTPException(status_code=400, detail="Cần nhập Advertiser ID")
+    try:
+        info = tiktok_int.verify_token(body.access_token, str(advertiser_id))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Token không hợp lệ: {exc}")
+    oauth_service.save_connection(
+        db, user_id=user.id, provider="tiktok",
+        access_token=body.access_token,
+        extra={"advertiser_id": str(advertiser_id)},
+    )
+    return TokenVerifyOut(ok=True, name=info["name"])
+
+
+# ── TikTok OAuth (tuỳ chọn) ───────────────────────────────────────────────
 @router.get("/tiktok/authorize", response_model=AuthUrlOut)
 def tiktok_authorize(user: User = Depends(get_current_user)):
     try:
