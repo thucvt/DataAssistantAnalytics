@@ -1,0 +1,28 @@
+services:
+  - type: web
+    name: daa-backend
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free
+    envVars:
+      - key: APP_PORT
+        value: "8080"
+      - key: ENV_FILE
+        value: /app/data/.env
+      # Sau khi deploy xong, vào Render Dashboard → Environment → thêm các biến:
+      # INSTALLED, SECRET_KEY, DATABASE_URL (Postgres external)
+      # FACEBOOK_APP_ID, FACEBOOK_APP_SECRET, FACEBOOK_AD_ACCOUNT_ID
+    disk:
+      name: daa-data
+      mountPath: /app/data
+      sizeGB: 1
+
+  - type: web
+    name: daa-frontend
+    runtime: static
+    buildCommand: cd frontend && npm ci && npm run build
+    staticPublishPath: ./frontend/dist
+    envVars:
+      - key: VITE_API_BASE
+        value: https://daa-backend.onrender.com   # đổi thành URL backend thật sau deploy
