@@ -37,14 +37,14 @@ def build_tools(db: Session, user_id: int, ai: AIManager) -> list:
     def meta_ads_cost(since: str = "", until: str = "") -> str:
         s, u = _dates(since, until)
         try:
-            data = data_sources.get_meta_ads_cost(db, user_id, s, u)
+            rows_data = data_sources.get_meta_ads_cost(db, user_id, s, u)
         except ValueError as e:
             return str(e)
-        if not data:
+        if not rows_data:
             return f"Không có dữ liệu chi phí Meta Ads từ {s} đến {u}."
-        total = sum(r["spend"] for r in data)
-        rows = "\n".join(f"  {r['date']}: ${r['spend']:,.2f}" for r in data[:10])
-        suffix = f"\n  ... (+{len(data)-10} ngày nữa)" if len(data) > 10 else ""
+        total = sum(r["spend"] for r in rows_data)
+        rows = "\n".join(f"  {r['date']}: ${r['spend']:,.2f}" for r in rows_data[:10])
+        suffix = f"\n  ... (+{len(rows_data)-10} ngày nữa)" if len(rows_data) > 10 else ""
         return f"Chi phí Meta Ads từ {s} đến {u} (tổng: ${total:,.2f} USD):\n{rows}{suffix}"
 
     def shopee_revenue(since: str = "", until: str = "") -> str:

@@ -42,6 +42,31 @@ class Settings(BaseSettings):
     APP_PORT: int = 8080
     DEBUG: bool = False
 
+    # ── Facebook / Meta Ads ─────────────────────────────────────────────────
+    FACEBOOK_APP_ID: str = ""
+    FACEBOOK_APP_SECRET: str = ""
+    FACEBOOK_REDIRECT_URI: str = ""
+    FACEBOOK_AD_ACCOUNT_ID: str = ""   # act_xxxxxxxxx
+
+    # ── Shopee Open Platform ────────────────────────────────────────────────
+    SHOPEE_PARTNER_ID: str = ""
+    SHOPEE_PARTNER_KEY: str = ""
+    SHOPEE_REDIRECT_URI: str = ""
+
+    # ── TikTok Business API ─────────────────────────────────────────────────
+    TIKTOK_APP_ID: str = ""
+    TIKTOK_APP_SECRET: str = ""
+    TIKTOK_REDIRECT_URI: str = ""
+    TIKTOK_ADVERTISER_ID: str = ""
+
+    # ── Google Ads Manager ──────────────────────────────────────────────────
+    GOOGLE_CLIENT_ID: str = ""
+    GOOGLE_CLIENT_SECRET: str = ""
+    GOOGLE_REDIRECT_URI: str = ""
+    GOOGLE_ADS_CUSTOMER_ID: str = ""
+    GOOGLE_ADS_DEVELOPER_TOKEN: str = ""
+    GOOGLE_ADS_LOGIN_CUSTOMER_ID: str = ""   # MCC account (tuỳ chọn)
+
 
 @lru_cache
 def get_settings() -> Settings:

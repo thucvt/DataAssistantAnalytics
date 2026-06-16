@@ -1,7 +1,6 @@
-"""TikTok Business API — OAuth 2.0 + lấy chi phí quảng cáo.
+"""TikTok Business API v1.3 — OAuth 2.0 + lấy chi phí quảng cáo.
 
-Tài liệu: https://business-api.tiktok.com/portal/docs
-Cấu hình trong system_configs:
+Cấu hình đọc từ env vars (Settings):
   TIKTOK_APP_ID, TIKTOK_APP_SECRET, TIKTOK_REDIRECT_URI
 """
 from __future__ import annotations
@@ -9,27 +8,23 @@ from __future__ import annotations
 from urllib.parse import urlencode
 
 import httpx
-from sqlalchemy.orm import Session
 
-from app.services import config_service
+from app.core.config import get_settings
 
 AUTH_BASE = "https://business-api.tiktok.com/portal/auth"
 API_BASE = "https://business-api.tiktok.com/open_api/v1.3"
 TOKEN_URL = f"{API_BASE}/oauth2/access_token/"
 
 
-def _cfg(db: Session) -> tuple[str, str, str]:
-    return (
-        config_service.get_config(db, "TIKTOK_APP_ID"),
-        config_service.get_config(db, "TIKTOK_APP_SECRET"),
-        config_service.get_config(db, "TIKTOK_REDIRECT_URI"),
-    )
+def _cfg() -> tuple[str, str, str]:
+    s = get_settings()
+    return s.TIKTOK_APP_ID, s.TIKTOK_APP_SECRET, s.TIKTOK_REDIRECT_URI
 
 
-def build_authorization_url(db: Session, state: str) -> str:
-    app_id, _, redirect_uri = _cfg(db)
+def build_authorization_url(state: str) -> str:
+    app_id, _, redirect_uri = _cfg()
     if not app_id or not redirect_uri:
-        raise ValueError("Chưa cấu hình TIKTOK_APP_ID / TIKTOK_REDIRECT_URI.")
+        raise ValueError("Chưa cấu hình TIKTOK_APP_ID / TIKTOK_REDIRECT_URI trong .env")
     params = {
         "app_id": app_id,
         "redirect_uri": redirect_uri,
@@ -39,9 +34,9 @@ def build_authorization_url(db: Session, state: str) -> str:
     return f"{AUTH_BASE}?{urlencode(params)}"
 
 
-def exchange_code_for_token(db: Session, auth_code: str) -> dict:
+def exchange_code_for_token(auth_code: str) -> dict:
     """Đổi auth_code lấy access_token."""
-    app_id, app_secret, _ = _cfg(db)
+    app_id, app_secret, _ = _cfg()
     with httpx.Client(timeout=20) as client:
         resp = client.post(
             TOKEN_URL,
@@ -50,7 +45,6 @@ def exchange_code_for_token(db: Session, auth_code: str) -> dict:
         )
         resp.raise_for_status()
         data = resp.json()
-        # TikTok trả {code:0, data:{access_token, advertiser_ids, ...}}
         if data.get("code") != 0:
             raise ValueError(f"TikTok lỗi: {data.get('message')}")
         return data.get("data", {})
@@ -59,10 +53,7 @@ def exchange_code_for_token(db: Session, auth_code: str) -> dict:
 def fetch_ad_spend(
     access_token: str, advertiser_id: str, start_date: str, end_date: str
 ) -> list[dict]:
-    """Lấy chi phí Ads theo ngày (YYYY-MM-DD) từ TikTok Ads Manager.
-
-    Trả về [{date, spend}].
-    """
+    """Lấy chi phí Ads theo ngày. Trả [{date, spend}]."""
     url = f"{API_BASE}/report/integrated/get/"
     headers = {"Access-Token": access_token}
     params = {
@@ -85,8 +76,7 @@ def fetch_ad_spend(
             data = resp.json()
             if data.get("code") != 0:
                 raise ValueError(f"TikTok Ads lỗi: {data.get('message')}")
-            rows = data.get("data", {}).get("list", [])
-            for row in rows:
+            for row in data.get("data", {}).get("list", []):
                 day = row.get("dimensions", {}).get("stat_time_day", "")[:10]
                 spend = float(row.get("metrics", {}).get("spend", 0) or 0)
                 out.append({"date": day, "spend": spend})

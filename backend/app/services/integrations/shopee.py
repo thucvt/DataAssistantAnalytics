@@ -8,7 +8,7 @@ Chữ ký số (signature) theo tài liệu Shopee v2, dùng HMAC-SHA256:
     base_string = partner_id + path + timestamp + access_token + shop_id
   sign = HEX( HMAC_SHA256(partner_key, base_string) )
 
-Cấu hình lưu trong system_configs (set qua Admin Panel):
+Cấu hình đọc từ env vars (Settings):
   SHOPEE_PARTNER_ID, SHOPEE_PARTNER_KEY, SHOPEE_REDIRECT_URI
 """
 from __future__ import annotations
@@ -19,9 +19,8 @@ import time
 from urllib.parse import urlencode
 
 import httpx
-from sqlalchemy.orm import Session
 
-from app.services import config_service
+from app.core.config import get_settings
 
 HOST = "https://partner.shopeemobile.com"
 
@@ -42,13 +41,11 @@ class ShopeeClient:
         self.redirect_uri = redirect_uri
 
     @classmethod
-    def from_db(cls, db: Session) -> "ShopeeClient":
-        pid = config_service.get_config(db, "SHOPEE_PARTNER_ID")
-        pkey = config_service.get_config(db, "SHOPEE_PARTNER_KEY")
-        redirect = config_service.get_config(db, "SHOPEE_REDIRECT_URI")
-        if not pid or not pkey:
-            raise ValueError("Chưa cấu hình SHOPEE_PARTNER_ID / SHOPEE_PARTNER_KEY.")
-        return cls(pid, pkey, redirect)
+    def from_settings(cls) -> "ShopeeClient":
+        s = get_settings()
+        if not s.SHOPEE_PARTNER_ID or not s.SHOPEE_PARTNER_KEY:
+            raise ValueError("Chưa cấu hình SHOPEE_PARTNER_ID / SHOPEE_PARTNER_KEY trong .env")
+        return cls(s.SHOPEE_PARTNER_ID, s.SHOPEE_PARTNER_KEY, s.SHOPEE_REDIRECT_URI)
 
     # ----- Public (chưa có token) -----
     def _sign_public(self, path: str, timestamp: int) -> str:

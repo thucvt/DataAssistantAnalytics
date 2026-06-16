@@ -7,9 +7,37 @@ services:
     ports:
       - "8080:8080"
     environment:
-      # File .env runtime do Installer ghi ra, nằm trong volume để tồn tại qua restart
       ENV_FILE: /app/data/.env
       APP_PORT: "8080"
+
+      # ── Facebook / Meta Ads ─────────────────────────────────────────────
+      # Tạo app tại https://developers.facebook.com → My Apps → Create App
+      FACEBOOK_APP_ID: ""
+      FACEBOOK_APP_SECRET: ""
+      FACEBOOK_REDIRECT_URI: "http://localhost:8080/api/oauth/facebook/callback"
+      FACEBOOK_AD_ACCOUNT_ID: ""        # act_xxxxxxxxx
+
+      # ── Shopee Open Platform ────────────────────────────────────────────
+      # Đăng ký tại https://open.shopee.com/
+      SHOPEE_PARTNER_ID: ""
+      SHOPEE_PARTNER_KEY: ""
+      SHOPEE_REDIRECT_URI: "http://localhost:8080/api/oauth/shopee/callback"
+
+      # ── TikTok Business API ─────────────────────────────────────────────
+      # Đăng ký tại https://business-api.tiktok.com/
+      TIKTOK_APP_ID: ""
+      TIKTOK_APP_SECRET: ""
+      TIKTOK_REDIRECT_URI: "http://localhost:8080/api/oauth/tiktok/callback"
+      TIKTOK_ADVERTISER_ID: ""          # (tuỳ chọn, lấy sau khi OAuth)
+
+      # ── Google Ads Manager ──────────────────────────────────────────────
+      # Tạo OAuth credentials tại https://console.cloud.google.com/
+      GOOGLE_CLIENT_ID: ""
+      GOOGLE_CLIENT_SECRET: ""
+      GOOGLE_REDIRECT_URI: "http://localhost:8080/api/oauth/google/callback"
+      GOOGLE_ADS_CUSTOMER_ID: ""        # Google Ads Customer ID (không dấu gạch)
+      GOOGLE_ADS_DEVELOPER_TOKEN: ""    # Từ Google Ads Manager Account
+      GOOGLE_ADS_LOGIN_CUSTOMER_ID: ""  # MCC account ID (nếu có)
     volumes:
       - backend_data:/app/data
       # Lưu file export Excel tạm thời (Phase 4)

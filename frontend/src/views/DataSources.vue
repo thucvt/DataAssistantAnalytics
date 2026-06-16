@@ -3,40 +3,29 @@ import { ref, onMounted } from 'vue'
 import api from '../api.js'
 
 const connections = ref([])
-const configs = ref({
-  FACEBOOK_APP_ID: '', FACEBOOK_APP_SECRET: '', FACEBOOK_REDIRECT_URI: '', FACEBOOK_AD_ACCOUNT_ID: '',
-  SHOPEE_PARTNER_ID: '', SHOPEE_PARTNER_KEY: '', SHOPEE_REDIRECT_URI: '',
-  TIKTOK_APP_ID: '', TIKTOK_APP_SECRET: '', TIKTOK_REDIRECT_URI: '', TIKTOK_ADVERTISER_ID: '',
-  GOOGLE_CLIENT_ID: '', GOOGLE_CLIENT_SECRET: '', GOOGLE_REDIRECT_URI: '',
-  GOOGLE_ADS_CUSTOMER_ID: '', GOOGLE_ADS_DEVELOPER_TOKEN: '', GOOGLE_ADS_LOGIN_CUSTOMER_ID: '',
-})
 const msg = ref({ text: '', type: '' })
 
-function showMsg(text, type = 'ok') { msg.value = { text, type }; setTimeout(() => msg.value.text = '', 5000) }
+function showMsg(text, type = 'ok') {
+  msg.value = { text, type }
+  setTimeout(() => msg.value.text = '', 5000)
+}
 
 async function loadConnections() {
   try { connections.value = (await api.get('/api/oauth/connections')).data }
   catch (e) { console.error(e) }
 }
 
-async function saveConfig(key) {
-  if (!configs.value[key]) return showMsg('Nhập giá trị trước', 'err')
-  try {
-    await api.put('/api/oauth/config', { key, value: configs.value[key] })
-    showMsg(`Đã lưu ${key}`)
-    configs.value[key] = ''
-  } catch (e) { showMsg(e.response?.data?.detail || 'Lỗi khi lưu', 'err') }
-}
-
-async function oauthConnect(provider, label) {
+async function connect(provider, label) {
   try {
     const r = await api.get(`/api/oauth/${provider}/authorize`)
     window.open(r.data.authorization_url, '_blank', 'width=640,height=720')
     showMsg(`Cửa sổ đăng nhập ${label} đã mở. Sau khi xác nhận, bấm Làm mới.`)
-  } catch (e) { showMsg(e.response?.data?.detail || `Chưa cấu hình ${label} credentials`, 'err') }
+  } catch (e) {
+    showMsg(e.response?.data?.detail || `Lỗi kết nối ${label}. Kiểm tra cấu hình .env`, 'err')
+  }
 }
 
-function connStatus(provider) {
+function conn(provider) {
   return connections.value.find(c => c.provider === provider)
 }
 
@@ -46,215 +35,80 @@ onMounted(loadConnections)
 <template>
   <div>
     <h2>Data Sources</h2>
-    <p class="sub">Kết nối nguồn dữ liệu. Nhập App credentials rồi bấm <strong>Lưu</strong>, sau đó bấm <strong>Kết nối</strong>.</p>
+    <p class="sub">Kết nối nguồn dữ liệu quảng cáo và bán hàng. Bấm <strong>Kết nối</strong> để ủy quyền qua OAuth.</p>
 
     <div v-if="msg.text" :class="['alert', msg.type === 'err' ? 'alert-err' : 'alert-ok']">{{ msg.text }}</div>
 
-    <!-- ── Facebook / Meta Ads ── -->
-    <div class="ds-card">
-      <div class="ds-header">
-        <div class="ds-title">
-          <span class="ds-icon fb-icon">f</span>
-          <div>
-            <h3>Facebook / Meta Ads</h3>
-            <p>Chi phí quảng cáo từ Meta Ads Manager (Graph API v21)</p>
-          </div>
-        </div>
-        <div class="ds-actions">
-          <span :class="['badge', connStatus('facebook')?.connected ? 'badge-ok' : 'badge-warn']">
-            {{ connStatus('facebook')?.connected ? '● Đã kết nối' : '○ Chưa kết nối' }}
+    <div class="ds-grid">
+
+      <!-- Facebook / Meta Ads -->
+      <div class="ds-card">
+        <div class="ds-logo fb">f</div>
+        <div class="ds-info">
+          <div class="ds-name">Facebook / Meta Ads</div>
+          <div class="ds-desc">Chi phí quảng cáo qua Graph API v25</div>
+          <span :class="['badge', conn('facebook')?.connected ? 'badge-ok' : 'badge-off']">
+            {{ conn('facebook')?.connected ? '● Đã kết nối' : '○ Chưa kết nối' }}
           </span>
-          <button class="btn btn-gold" @click="oauthConnect('facebook', 'Facebook')">Kết nối</button>
         </div>
+        <button class="btn btn-gold ds-btn" @click="connect('facebook', 'Facebook')">
+          Kết nối
+        </button>
       </div>
-      <div class="grid2">
-        <div class="field">
-          <label>App ID</label>
-          <div class="inline-save">
-            <input v-model="configs.FACEBOOK_APP_ID" placeholder="12345678901234" />
-            <button class="btn btn-ghost" @click="saveConfig('FACEBOOK_APP_ID')">Lưu</button>
-          </div>
+
+      <!-- Shopee -->
+      <div class="ds-card">
+        <div class="ds-logo shopee">S</div>
+        <div class="ds-info">
+          <div class="ds-name">Shopee</div>
+          <div class="ds-desc">Doanh thu qua Shopee Open Platform</div>
+          <span :class="['badge', conn('shopee')?.connected ? 'badge-ok' : 'badge-off']">
+            {{ conn('shopee')?.connected ? '● Đã kết nối' : '○ Chưa kết nối' }}
+          </span>
         </div>
-        <div class="field">
-          <label>App Secret</label>
-          <div class="inline-save">
-            <input v-model="configs.FACEBOOK_APP_SECRET" type="password" placeholder="••••••••" />
-            <button class="btn btn-ghost" @click="saveConfig('FACEBOOK_APP_SECRET')">Lưu</button>
-          </div>
-        </div>
-        <div class="field">
-          <label>Ad Account ID (act_xxxxxxxxx)</label>
-          <div class="inline-save">
-            <input v-model="configs.FACEBOOK_AD_ACCOUNT_ID" placeholder="act_123456789" />
-            <button class="btn btn-ghost" @click="saveConfig('FACEBOOK_AD_ACCOUNT_ID')">Lưu</button>
-          </div>
-        </div>
-        <div class="field">
-          <label>Redirect URI</label>
-          <div class="inline-save">
-            <input v-model="configs.FACEBOOK_REDIRECT_URI" placeholder="http://localhost:8080/api/oauth/facebook/callback" />
-            <button class="btn btn-ghost" @click="saveConfig('FACEBOOK_REDIRECT_URI')">Lưu</button>
-          </div>
-        </div>
+        <button class="btn btn-gold ds-btn" @click="connect('shopee', 'Shopee')">
+          Kết nối
+        </button>
       </div>
-      <button class="btn-refresh" @click="loadConnections">↻ Làm mới trạng thái</button>
+
+      <!-- TikTok Ads -->
+      <div class="ds-card">
+        <div class="ds-logo tiktok">T</div>
+        <div class="ds-info">
+          <div class="ds-name">TikTok Ads</div>
+          <div class="ds-desc">Chi phí quảng cáo qua TikTok Business API v1.3</div>
+          <span :class="['badge', conn('tiktok')?.connected ? 'badge-ok' : 'badge-off']">
+            {{ conn('tiktok')?.connected ? '● Đã kết nối' : '○ Chưa kết nối' }}
+          </span>
+        </div>
+        <button class="btn btn-gold ds-btn" @click="connect('tiktok', 'TikTok')">
+          Kết nối
+        </button>
+      </div>
+
+      <!-- Google Ads -->
+      <div class="ds-card">
+        <div class="ds-logo google">G</div>
+        <div class="ds-info">
+          <div class="ds-name">Google Ads Manager</div>
+          <div class="ds-desc">Chi phí quảng cáo qua Google Ads API v18 (GAQL)</div>
+          <span :class="['badge', conn('google')?.connected ? 'badge-ok' : 'badge-off']">
+            {{ conn('google')?.connected ? '● Đã kết nối' : '○ Chưa kết nối' }}
+          </span>
+        </div>
+        <button class="btn btn-gold ds-btn" @click="connect('google', 'Google')">
+          Kết nối
+        </button>
+      </div>
+
     </div>
 
-    <!-- ── Shopee ── -->
-    <div class="ds-card">
-      <div class="ds-header">
-        <div class="ds-title">
-          <span class="ds-icon shopee-icon">S</span>
-          <div>
-            <h3>Shopee</h3>
-            <p>Doanh thu đơn hàng từ Shopee Open Platform (HMAC-SHA256)</p>
-          </div>
-        </div>
-        <div class="ds-actions">
-          <span :class="['badge', connStatus('shopee')?.connected ? 'badge-ok' : 'badge-warn']">
-            {{ connStatus('shopee')?.connected ? '● Đã kết nối' : '○ Chưa kết nối' }}
-          </span>
-          <button class="btn btn-gold" @click="oauthConnect('shopee', 'Shopee')">Kết nối</button>
-        </div>
-      </div>
-      <div class="grid2">
-        <div class="field">
-          <label>Partner ID</label>
-          <div class="inline-save">
-            <input v-model="configs.SHOPEE_PARTNER_ID" placeholder="1234567" />
-            <button class="btn btn-ghost" @click="saveConfig('SHOPEE_PARTNER_ID')">Lưu</button>
-          </div>
-        </div>
-        <div class="field">
-          <label>Partner Key</label>
-          <div class="inline-save">
-            <input v-model="configs.SHOPEE_PARTNER_KEY" type="password" placeholder="••••••••" />
-            <button class="btn btn-ghost" @click="saveConfig('SHOPEE_PARTNER_KEY')">Lưu</button>
-          </div>
-        </div>
-        <div class="field" style="grid-column:1/-1">
-          <label>Redirect URI</label>
-          <div class="inline-save">
-            <input v-model="configs.SHOPEE_REDIRECT_URI" placeholder="http://localhost:8080/api/oauth/shopee/callback" />
-            <button class="btn btn-ghost" @click="saveConfig('SHOPEE_REDIRECT_URI')">Lưu</button>
-          </div>
-        </div>
-      </div>
-      <button class="btn-refresh" @click="loadConnections">↻ Làm mới trạng thái</button>
-    </div>
+    <button class="btn-refresh" @click="loadConnections">↻ Làm mới trạng thái</button>
 
-    <!-- ── TikTok Ads ── -->
-    <div class="ds-card">
-      <div class="ds-header">
-        <div class="ds-title">
-          <span class="ds-icon tiktok-icon">T</span>
-          <div>
-            <h3>TikTok Ads</h3>
-            <p>Chi phí quảng cáo từ TikTok Business API v1.3</p>
-          </div>
-        </div>
-        <div class="ds-actions">
-          <span :class="['badge', connStatus('tiktok')?.connected ? 'badge-ok' : 'badge-warn']">
-            {{ connStatus('tiktok')?.connected ? '● Đã kết nối' : '○ Chưa kết nối' }}
-          </span>
-          <button class="btn btn-gold" @click="oauthConnect('tiktok', 'TikTok')">Kết nối</button>
-        </div>
-      </div>
-      <div class="grid2">
-        <div class="field">
-          <label>App ID</label>
-          <div class="inline-save">
-            <input v-model="configs.TIKTOK_APP_ID" placeholder="7xxxxxxxxxxxxxxxxx" />
-            <button class="btn btn-ghost" @click="saveConfig('TIKTOK_APP_ID')">Lưu</button>
-          </div>
-        </div>
-        <div class="field">
-          <label>App Secret</label>
-          <div class="inline-save">
-            <input v-model="configs.TIKTOK_APP_SECRET" type="password" placeholder="••••••••" />
-            <button class="btn btn-ghost" @click="saveConfig('TIKTOK_APP_SECRET')">Lưu</button>
-          </div>
-        </div>
-        <div class="field">
-          <label>Advertiser ID (nếu biết trước)</label>
-          <div class="inline-save">
-            <input v-model="configs.TIKTOK_ADVERTISER_ID" placeholder="7xxxxxxxxxxxxxxxxx" />
-            <button class="btn btn-ghost" @click="saveConfig('TIKTOK_ADVERTISER_ID')">Lưu</button>
-          </div>
-        </div>
-        <div class="field">
-          <label>Redirect URI</label>
-          <div class="inline-save">
-            <input v-model="configs.TIKTOK_REDIRECT_URI" placeholder="http://localhost:8080/api/oauth/tiktok/callback" />
-            <button class="btn btn-ghost" @click="saveConfig('TIKTOK_REDIRECT_URI')">Lưu</button>
-          </div>
-        </div>
-      </div>
-      <button class="btn-refresh" @click="loadConnections">↻ Làm mới trạng thái</button>
-    </div>
-
-    <!-- ── Google Ads Manager ── -->
-    <div class="ds-card">
-      <div class="ds-header">
-        <div class="ds-title">
-          <span class="ds-icon google-icon">G</span>
-          <div>
-            <h3>Google Ads Manager</h3>
-            <p>Chi phí quảng cáo từ Google Ads API v18 (GAQL)</p>
-          </div>
-        </div>
-        <div class="ds-actions">
-          <span :class="['badge', connStatus('google')?.connected ? 'badge-ok' : 'badge-warn']">
-            {{ connStatus('google')?.connected ? '● Đã kết nối' : '○ Chưa kết nối' }}
-          </span>
-          <button class="btn btn-gold" @click="oauthConnect('google', 'Google')">Kết nối</button>
-        </div>
-      </div>
-      <div class="grid2">
-        <div class="field">
-          <label>Client ID</label>
-          <div class="inline-save">
-            <input v-model="configs.GOOGLE_CLIENT_ID" placeholder="xxxx.apps.googleusercontent.com" />
-            <button class="btn btn-ghost" @click="saveConfig('GOOGLE_CLIENT_ID')">Lưu</button>
-          </div>
-        </div>
-        <div class="field">
-          <label>Client Secret</label>
-          <div class="inline-save">
-            <input v-model="configs.GOOGLE_CLIENT_SECRET" type="password" placeholder="GOCSPX-••••••••" />
-            <button class="btn btn-ghost" @click="saveConfig('GOOGLE_CLIENT_SECRET')">Lưu</button>
-          </div>
-        </div>
-        <div class="field">
-          <label>Developer Token</label>
-          <div class="inline-save">
-            <input v-model="configs.GOOGLE_ADS_DEVELOPER_TOKEN" type="password" placeholder="••••••••" />
-            <button class="btn btn-ghost" @click="saveConfig('GOOGLE_ADS_DEVELOPER_TOKEN')">Lưu</button>
-          </div>
-        </div>
-        <div class="field">
-          <label>Customer ID (không dấu gạch)</label>
-          <div class="inline-save">
-            <input v-model="configs.GOOGLE_ADS_CUSTOMER_ID" placeholder="1234567890" />
-            <button class="btn btn-ghost" @click="saveConfig('GOOGLE_ADS_CUSTOMER_ID')">Lưu</button>
-          </div>
-        </div>
-        <div class="field">
-          <label>Login Customer ID (MCC, nếu có)</label>
-          <div class="inline-save">
-            <input v-model="configs.GOOGLE_ADS_LOGIN_CUSTOMER_ID" placeholder="0987654321" />
-            <button class="btn btn-ghost" @click="saveConfig('GOOGLE_ADS_LOGIN_CUSTOMER_ID')">Lưu</button>
-          </div>
-        </div>
-        <div class="field">
-          <label>Redirect URI</label>
-          <div class="inline-save">
-            <input v-model="configs.GOOGLE_REDIRECT_URI" placeholder="http://localhost:8080/api/oauth/google/callback" />
-            <button class="btn btn-ghost" @click="saveConfig('GOOGLE_REDIRECT_URI')">Lưu</button>
-          </div>
-        </div>
-      </div>
-      <button class="btn-refresh" @click="loadConnections">↻ Làm mới trạng thái</button>
+    <div class="hint-box">
+      <strong>Lưu ý:</strong> Để nút Kết nối hoạt động, admin cần điền credentials của từng nền tảng vào file
+      <code>docker-compose.yml</code> (các biến <code>FACEBOOK_APP_ID</code>, <code>TIKTOK_APP_ID</code>…)
+      rồi khởi động lại container.
     </div>
   </div>
 </template>
@@ -263,49 +117,49 @@ onMounted(loadConnections)
 h2 { margin: 0 0 4px; font-size: 22px; }
 .sub { color: var(--text-dim); font-size: 13.5px; margin: 0 0 24px; }
 
+.ds-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 800px) { .ds-grid { grid-template-columns: 1fr; } }
+
 .ds-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 22px 24px;
-  margin-bottom: 18px;
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 14px; padding: 22px 20px;
+  display: flex; align-items: center; gap: 16px;
+  transition: border-color .2s;
 }
-.ds-header {
-  display: flex; align-items: flex-start;
-  justify-content: space-between; gap: 16px;
-  margin-bottom: 20px; flex-wrap: wrap;
-}
-.ds-title { display: flex; align-items: center; gap: 14px; }
-.ds-title h3 { margin: 0 0 3px; font-size: 16px; }
-.ds-title p { margin: 0; font-size: 12.5px; color: var(--text-dim); }
-.ds-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.ds-card:hover { border-color: rgba(212,175,55,.3); }
 
-.ds-icon {
-  width: 40px; height: 40px; border-radius: 10px;
+.ds-logo {
+  width: 48px; height: 48px; border-radius: 12px;
   display: grid; place-items: center;
-  font-size: 18px; font-weight: 800; flex-shrink: 0;
+  font-size: 22px; font-weight: 800; flex-shrink: 0;
 }
-.fb-icon     { background: #1877f2; color: #fff; }
-.shopee-icon { background: #f53d2d; color: #fff; }
-.tiktok-icon { background: #010101; color: #fff; border: 1px solid #333; }
-.google-icon { background: linear-gradient(135deg,#4285f4 25%,#34a853 50%,#fbbc05 75%,#ea4335 100%); color: #fff; }
+.fb      { background: #1877f2; color: #fff; }
+.shopee  { background: #f53d2d; color: #fff; }
+.tiktok  { background: #111;    color: #fff; border: 1px solid #333; font-size: 18px; }
+.google  { background: linear-gradient(135deg,#4285f4 25%,#34a853 50%,#fbbc05 75%,#ea4335 100%); color: #fff; }
 
-.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 18px; }
-.field { display: flex; flex-direction: column; gap: 6px; }
-.field label { font-size: 12px; color: var(--text-dim); font-weight: 500; letter-spacing: .02em; }
-.inline-save { display: flex; gap: 8px; }
-.inline-save input { flex: 1; min-width: 0; }
+.ds-info { flex: 1; min-width: 0; }
+.ds-name { font-size: 15px; font-weight: 700; margin-bottom: 3px; }
+.ds-desc { font-size: 12px; color: var(--text-dim); margin-bottom: 8px; }
+
+.ds-btn { white-space: nowrap; flex-shrink: 0; }
+
+.badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11.5px; font-weight: 600; }
+.badge-ok  { background: rgba(52,211,153,.12); color: #34d399; }
+.badge-off { background: rgba(156,163,175,.1);  color: #6b7280; }
 
 .btn-refresh {
   background: none; border: none; color: var(--text-dim);
-  font-size: 12.5px; cursor: pointer; margin-top: 14px;
-  padding: 4px 0;
+  font-size: 13px; cursor: pointer; margin-top: 16px; padding: 0;
 }
 .btn-refresh:hover { color: var(--gold-soft); }
 
-.badge { padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
-.badge-ok   { background: rgba(52,211,153,.12); color: #34d399; }
-.badge-warn { background: rgba(251,191,36,.1);  color: #fbbf24; }
+.hint-box {
+  margin-top: 20px; padding: 14px 18px;
+  background: rgba(212,175,55,.06); border: 1px solid rgba(212,175,55,.18);
+  border-radius: 10px; font-size: 13px; color: var(--text-dim); line-height: 1.6;
+}
+.hint-box code { color: var(--gold-soft); background: rgba(212,175,55,.1); padding: 1px 5px; border-radius: 4px; }
 
 .alert { padding: 12px 16px; border-radius: 9px; font-size: 13.5px; margin-bottom: 18px; }
 .alert-ok  { background: rgba(52,211,153,.08); border: 1px solid rgba(52,211,153,.25); color: #34d399; }
