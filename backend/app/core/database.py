@@ -17,6 +17,15 @@ _engine: Engine | None = None
 _SessionLocal: sessionmaker[Session] | None = None
 
 
+def _normalize_db_url(url: str) -> str:
+    """Render provides postgres:// — convert to postgresql+psycopg:// for psycopg3."""
+    if url.startswith("postgres://"):
+        return "postgresql+psycopg://" + url[len("postgres://"):]
+    if url.startswith("postgresql://") and "+psycopg" not in url:
+        return "postgresql+psycopg://" + url[len("postgresql://"):]
+    return url
+
+
 def build_engine(database_url: str) -> Engine:
     """Tạo engine cho một DATABASE_URL. Tách riêng để Installer test connection."""
     connect_args: dict = {}
@@ -26,6 +35,8 @@ def build_engine(database_url: str) -> Engine:
         db_path = database_url.replace("sqlite:///", "")
         if db_path and db_path != ":memory:":
             Path(db_path).parent.mkdir(parents=True, exist_ok=True)
+    else:
+        database_url = _normalize_db_url(database_url)
     return create_engine(database_url, connect_args=connect_args, pool_pre_ping=True)
 
 
