@@ -5,7 +5,7 @@ trường `ENV_FILE`). File này do Web Installer ghi ra sau khi khách điền 
 """
 from __future__ import annotations
 
-import os
+import os  # noqa: E402 — phải import trước pydantic để đọc PORT
 from functools import lru_cache
 from pathlib import Path
 
@@ -39,7 +39,7 @@ class Settings(BaseSettings):
 
     # Cấu hình app
     APP_NAME: str = "Data Assistant Analytics"
-    APP_PORT: int = 8080
+    APP_PORT: int = int(os.getenv("PORT", os.getenv("APP_PORT", "8080")))
     DEBUG: bool = False
 
     # ── Facebook / Meta Ads ─────────────────────────────────────────────────

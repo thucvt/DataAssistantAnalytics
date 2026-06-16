@@ -1,23 +1,79 @@
+databases:
+  - name: daa-db
+    plan: free
+    databaseName: daa
+    user: daa
+
 services:
+  # ── Backend ──────────────────────────────────────────────────────────────
   - type: web
     name: daa-backend
     runtime: docker
-    dockerfilePath: ./backend/Dockerfile
+    dockerfilePath: ./Dockerfile
     dockerContext: ./backend
     plan: free
+    healthCheckPath: /
     envVars:
       - key: APP_PORT
-        value: "8080"
+        value: "10000"           # Render free tier dùng port 10000
       - key: ENV_FILE
-        value: /app/data/.env
-      # Sau khi deploy xong, vào Render Dashboard → Environment → thêm các biến:
-      # INSTALLED, SECRET_KEY, DATABASE_URL (Postgres external)
-      # FACEBOOK_APP_ID, FACEBOOK_APP_SECRET, FACEBOOK_AD_ACCOUNT_ID
-    disk:
-      name: daa-data
-      mountPath: /app/data
-      sizeGB: 1
+        value: /dev/null         # Không đọc file .env — dùng env vars
+      - key: INSTALLED
+        value: "true"
+      - key: SECRET_KEY
+        generateValue: true      # Render tự sinh random
+      - key: DATABASE_URL
+        fromDatabase:
+          name: daa-db
+          property: connectionString
 
+      # ── Admin mặc định (đổi sau khi deploy) ──────────────────────────────
+      - key: ADMIN_EMAIL
+        value: admin@example.com
+      - key: ADMIN_PASSWORD
+        value: Admin@1234        # ĐỔI NGAY sau khi deploy!
+
+      # ── Facebook / Meta Ads ───────────────────────────────────────────────
+      - key: FACEBOOK_APP_ID
+        value: ""
+      - key: FACEBOOK_APP_SECRET
+        value: ""
+      - key: FACEBOOK_REDIRECT_URI
+        value: ""                # https://daa-backend.onrender.com/api/oauth/facebook/callback
+      - key: FACEBOOK_AD_ACCOUNT_ID
+        value: ""
+
+      # ── Shopee ────────────────────────────────────────────────────────────
+      - key: SHOPEE_PARTNER_ID
+        value: ""
+      - key: SHOPEE_PARTNER_KEY
+        value: ""
+      - key: SHOPEE_REDIRECT_URI
+        value: ""
+
+      # ── TikTok ────────────────────────────────────────────────────────────
+      - key: TIKTOK_APP_ID
+        value: ""
+      - key: TIKTOK_APP_SECRET
+        value: ""
+      - key: TIKTOK_REDIRECT_URI
+        value: ""
+      - key: TIKTOK_ADVERTISER_ID
+        value: ""
+
+      # ── Google Ads ────────────────────────────────────────────────────────
+      - key: GOOGLE_CLIENT_ID
+        value: ""
+      - key: GOOGLE_CLIENT_SECRET
+        value: ""
+      - key: GOOGLE_REDIRECT_URI
+        value: ""
+      - key: GOOGLE_ADS_CUSTOMER_ID
+        value: ""
+      - key: GOOGLE_ADS_DEVELOPER_TOKEN
+        value: ""
+
+  # ── Frontend ──────────────────────────────────────────────────────────────
   - type: web
     name: daa-frontend
     runtime: static
@@ -25,4 +81,4 @@ services:
     staticPublishPath: ./frontend/dist
     envVars:
       - key: VITE_API_BASE
-        value: https://daa-backend.onrender.com   # đổi thành URL backend thật sau deploy
+        value: https://daa-backend.onrender.com   # SẼ CẬP NHẬT sau khi backend deploy xong
