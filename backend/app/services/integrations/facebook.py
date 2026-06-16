@@ -69,6 +69,51 @@ def exchange_code_for_token(code: str) -> dict:
     return data  # {access_token, token_type, expires_in}
 
 
+def verify_token(access_token: str) -> dict:
+    """Kiểm tra token còn hợp lệ không. Trả {name, expires_at} hoặc raise."""
+    with httpx.Client(timeout=10) as client:
+        resp = client.get(f"{GRAPH_BASE}/me", params={
+            "access_token": access_token,
+            "fields": "id,name",
+        })
+        resp.raise_for_status()
+        data = resp.json()
+        if "error" in data:
+            raise ValueError(data["error"].get("message", "Token không hợp lệ"))
+        # Lấy thêm thông tin hết hạn từ debug_token
+        debug = client.get(f"{GRAPH_BASE}/debug_token", params={
+            "input_token": access_token,
+            "access_token": access_token,
+        })
+        exp = None
+        if debug.status_code == 200:
+            exp_ts = debug.json().get("data", {}).get("expires_at")
+            if exp_ts:
+                from datetime import datetime, timezone
+                exp = datetime.fromtimestamp(exp_ts, tz=timezone.utc).isoformat()
+        return {"name": data.get("name", ""), "expires_at": exp}
+
+
+def try_extend_token(short_token: str) -> tuple[str, bool]:
+    """Thử gia hạn sang long-lived token (60 ngày). Cần App credentials trong .env.
+
+    Trả (token, extended). Nếu không có App credentials thì trả token gốc, False.
+    """
+    app_id, app_secret, _ = _cfg()
+    if not app_id or not app_secret:
+        return short_token, False
+    with httpx.Client(timeout=15) as client:
+        resp = client.get(f"{GRAPH_BASE}/oauth/access_token", params={
+            "grant_type": "fb_exchange_token",
+            "client_id": app_id,
+            "client_secret": app_secret,
+            "fb_exchange_token": short_token,
+        })
+        if resp.status_code == 200 and "access_token" in resp.json():
+            return resp.json()["access_token"], True
+    return short_token, False
+
+
 def fetch_ad_spend(access_token: str, ad_account_id: str, since: str, until: str) -> list[dict]:
     """Lấy chi phí theo ngày từ Marketing Insights API.
 

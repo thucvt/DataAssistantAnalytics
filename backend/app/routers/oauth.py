@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from app.core.auth import create_access_token, decode_token, get_current_user
 from app.core.database import get_db
 from app.models import User
-from app.schemas.oauth import AuthUrlOut, ConnectionOut
+from app.schemas.oauth import AuthUrlOut, ConnectionOut, PasteTokenIn, TokenVerifyOut
 from app.services import oauth_service
 from app.services.integrations import facebook
 from app.services.integrations import tiktok as tiktok_int
@@ -62,7 +62,53 @@ def list_connections(db: Session = Depends(get_db), user: User = Depends(get_cur
     return result
 
 
-# ── Facebook / Meta Ads ──────────────────────────────────────────────────────
+# ── Facebook paste token ─────────────────────────────────────────────────────
+@router.post("/facebook/token", response_model=TokenVerifyOut)
+def fb_paste_token(
+    body: PasteTokenIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """User dán Access Token từ Graph API Explorer. Tự động gia hạn nếu có App credentials."""
+    try:
+        info = facebook.verify_token(body.access_token)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Token không hợp lệ: {exc}")
+
+    token, extended = facebook.try_extend_token(body.access_token)
+
+    # Lấy thời hạn sau khi gia hạn
+    expires_at_str = info.get("expires_at")
+    if extended:
+        try:
+            new_info = facebook.verify_token(token)
+            expires_at_str = new_info.get("expires_at")
+        except Exception:
+            pass
+
+    expires_at_dt = None
+    if expires_at_str:
+        from datetime import datetime, timezone
+        try:
+            expires_at_dt = datetime.fromisoformat(expires_at_str.replace("Z", "+00:00"))
+        except Exception:
+            pass
+
+    # Lưu vào DB — extra chứa ad_account_id nếu user nhập
+    oauth_service.save_connection(
+        db, user_id=user.id, provider="facebook",
+        access_token=token, expires_at=expires_at_dt,
+        extra=body.extra or {},
+    )
+    return TokenVerifyOut(
+        ok=True,
+        name=info.get("name", ""),
+        expires_at=expires_at_str,
+        long_lived=extended,
+    )
+
+
+# ── Facebook / Meta Ads OAuth (tuỳ chọn, cần App Review) ────────────────────
 @router.get("/facebook/authorize", response_model=AuthUrlOut)
 def fb_authorize(user: User = Depends(get_current_user)):
     try:
