@@ -81,4 +81,4 @@ services:
     staticPublishPath: ./frontend/dist
     envVars:
       - key: VITE_API_BASE
-        value: https://daa-backend.onrender.com   # SẼ CẬP NHẬT sau khi backend deploy xong
+        value: https://daa-backend-g8f1.onrender.com
